@@ -5,13 +5,16 @@ export default router;
 import {
   createPlaylist,
   getPlaylistById,
-  getPlaylists,
+  getPlaylistsByUserId,
 } from "#db/queries/playlists";
 import { createPlaylistTrack } from "#db/queries/playlists_tracks";
 import { getTracksByPlaylistId } from "#db/queries/tracks";
+import requireUser from "#middleware/requireUser";
+
+router.use(requireUser);
 
 router.get("/", async (req, res) => {
-  const playlists = await getPlaylists();
+  const playlists = await getPlaylistsByUserId(req.user.id);
   res.send(playlists);
 });
 
@@ -22,7 +25,7 @@ router.post("/", async (req, res) => {
   if (!name || !description)
     return res.status(400).send("Request body requires: name, description");
 
-  const playlist = await createPlaylist(name, description);
+  const playlist = await createPlaylist(name, description, req.user.id);
   res.status(201).send(playlist);
 });
 
@@ -35,15 +38,21 @@ router.param("id", async (req, res, next, id) => {
 });
 
 router.get("/:id", (req, res) => {
+  if (req.playlist.user_id !== req.user.id)
+    return res.status(403).send("Forbidden");
   res.send(req.playlist);
 });
 
 router.get("/:id/tracks", async (req, res) => {
+  if (req.playlist.user_id !== req.user.id)
+    return res.status(403).send("Forbidden");
   const tracks = await getTracksByPlaylistId(req.playlist.id);
   res.send(tracks);
 });
 
 router.post("/:id/tracks", async (req, res) => {
+  if (req.playlist.user_id !== req.user.id)
+    return res.status(403).send("Forbidden");
   if (!req.body) return res.status(400).send("Request body is required.");
 
   const { trackId } = req.body;
